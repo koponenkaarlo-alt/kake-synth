@@ -1,0 +1,51 @@
+{
+  "name": "Build SYNTH Windows VST3",
+  "on": {
+    "push": {
+      "branches": [
+        "main"
+      ]
+    },
+    "workflow_dispatch": {}
+  },
+  "jobs": {
+    "windows": {
+      "runs-on": "windows-latest",
+      "steps": [
+        {
+          "uses": "actions/checkout@v4"
+        },
+        {
+          "name": "Unpack",
+          "shell": "pwsh",
+          "run": "Expand-Archive -Path SYNTH-source_1.zip -DestinationPath src -Force; Get-ChildItem src"
+        },
+        {
+          "name": "Configure",
+          "run": "cmake -S src/synth -B build -G \"Visual Studio 17 2022\" -A x64"
+        },
+        {
+          "name": "Build",
+          "run": "cmake --build build --config Release --target SYNTH_VST3 SynthDspTest --parallel"
+        },
+        {
+          "name": "DSP tests",
+          "continue-on-error": true,
+          "run": "build\\Release\\SynthDspTest.exe"
+        },
+        {
+          "name": "Package",
+          "shell": "pwsh",
+          "run": "$vst3 = Get-ChildItem -Path build -Recurse -Directory -Filter 'SYNTH.vst3' | Select-Object -First 1\nif (-not $vst3) { throw 'SYNTH.vst3 not found' }\nNew-Item -ItemType Directory -Force -Path dist | Out-Null\nCopy-Item -Recurse $vst3.FullName dist\\SYNTH.vst3\nCopy-Item src\\synth\\tools\\install-vst3.ps1 dist\\\nCompress-Archive -Path dist\\* -DestinationPath SYNTH-VST3-Windows.zip"
+        },
+        {
+          "uses": "actions/upload-artifact@v4",
+          "with": {
+            "name": "SYNTH-VST3-Windows",
+            "path": "SYNTH-VST3-Windows.zip"
+          }
+        }
+      ]
+    }
+  }
+}
